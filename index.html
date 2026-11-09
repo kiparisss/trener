@@ -160,6 +160,8 @@
   .actions { display: flex; gap: 10px; margin-top: 22px; }
   .btn { flex: 1; height: 50px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; }
   .btn.primary { background: var(--acc); color: var(--on-acc); }
+  a.btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  a.menu-btn { text-decoration: none; }
   .btn.ghost { background: var(--chip); color: var(--text); }
   .btn.danger { background: var(--chip); color: var(--danger); }
   .btn.red { background: var(--danger); color: #fff; }
@@ -665,10 +667,10 @@ async function finish() {
     <div class="ir"><span>Подходов</span><span>${w.sets.length}</span></div>
     <div class="ir"><span>Поднято всего</span><span>${f0(ton)} кг</span></div></div>`;
   if (recs.length) h += `<div class="s-label">Рекорды (расчётный 1ПМ)</div>${recs.map(r => `<div class="ir"><span>${esc(r.split(':')[0])}</span><span>${esc(r.split(': ')[1])}</span></div>`).join('')}`;
-  h += `<div class="s-sub" style="margin-top:14px">Скопируй отчёт и отправь тренеру в чат — он разберёт тренировку.</div>
-    <div class="actions"><button class="btn ghost" data-close>Закрыть</button><button class="btn primary" id="copyOne">Скопировать отчёт</button></div>`;
+  h += `<div class="s-sub" style="margin-top:14px">Нажми «Отправить тренеру»: отчёт скопируется и откроется Claude. Открой проект «СПОРТ» и вставь.</div>
+    <div class="actions"><button class="btn ghost" data-close>Закрыть</button>${sendBtn('Отправить тренеру')}</div>`;
+  SEND = 'Записал тренировку, разбери:\n\n' + workoutText(w);
   openSheet(h);
-  $('#copyOne').onclick = () => copy(workoutText(w));
   sel = suggest(); render();
 }
 function bestE1(n) { let b = 0; history(n).forEach(x => x.sets.forEach(s => { const e = e1rm(s.w, s.r); if (e && e > b) b = e; })); return b || null; }
@@ -812,9 +814,9 @@ function wSheet(id) {
     const by = {}; w.sets.forEach(s => (by[s.ex] = by[s.ex] || []).push(s));
     Object.entries(by).forEach(([n, ss]) => { const ex = ALL.find(e => e.n === n) || {}; h += `<div class="ir"><span>${esc(short(n))}</span><span>${ss.map(s => (s.w != null && !ex.sec ? f1(s.w) + '×' : '') + s.r).join('  ')}${ss[0].rir != null ? ' · запас ' + ss[0].rir : ''}</span></div>`; });
   }
-  h += `</div><div class="actions"><button class="btn danger" id="wDel">Удалить</button><button class="btn primary" id="wCopy">Скопировать</button></div>`;
+  h += `</div><div class="actions"><button class="btn danger" id="wDel">Удалить</button>${sendBtn('Отправить тренеру')}</div>`;
+  SEND = 'Вот тренировка:\n\n' + workoutText(w);
   openSheet(h);
-  $('#wCopy').onclick = () => copy(workoutText(w));
   $('#wDel').onclick = async () => { if (await ask('Удалить тренировку?', 'Вернуть не получится.', 'Удалить', true)) { S.workouts = S.workouts.filter(x => x.id !== id); save(); closeSheet(); sel = suggest(); render(); } };
 }
 
@@ -832,6 +834,15 @@ function report(nDays) {
   const P = W.filter(w => w.session === 'P');
   return `ОТЧЁТ ДЛЯ ТРЕНЕРА ${nDays ? '(' + nDays + ' дн., до ' + today() + ')' : '(вся история)'}\n\nworkout_log.csv\ndate,session,exercise,set,weight_kg,reps,rir,notes\n${workoutCsv(W).join('\n')}\n\nbody_metrics.csv\ndate,weight_kg,waist_cm,sleep_h,steps,notes\n${B.map(b => csvLine([b.date, b.weight, b.waist, b.sleep, b.steps, ''])).join('\n')}\n\nБассейн:\n${P.map(p => `${p.date}: ${p.laps} × 25 м`).join('\n') || '—'}`;
 }
+const CLAUDE_URL = 'https://claude.ai/';
+let SEND = '';
+const sendBtn = (label, cls) => `<a class="${cls || 'btn primary'} send" href="${CLAUDE_URL}" target="_blank" rel="noopener">${label}</a>`;
+function sendCoach() {
+  if (SEND) {
+    try { navigator.clipboard.writeText(SEND).catch(() => {}); } catch (e) {}
+    toast('Отчёт скопирован — вставь его в чат проекта «СПОРТ»');
+  }
+}
 function copy(text) {
   const done = () => toast('Скопировано — вставь в чат тренеру');
   const fallback = () => {
@@ -842,12 +853,13 @@ function copy(text) {
 }
 function settingsSheet() {
   openSheet(`<div class="s-title">Тренер</div><div class="s-sub">Данные хранятся только на этом телефоне.</div><div style="margin-top:8px">
-    <button class="menu-btn" id="m14"><span>Отчёт за 2 недели<small>Для еженедельного разбора в чате</small></span>›</button>
+    ${sendBtn('<span>Еженедельный отчёт тренеру<small>Скопирует 2 недели данных и откроет Claude</small></span>›', 'menu-btn')}
+    <a class="menu-btn" href="${CLAUDE_URL}" target="_blank" rel="noopener"><span>Написать тренеру<small>Открыть Claude → проект «СПОРТ»</small></span>›</a>
     <button class="menu-btn" id="mAll"><span>Вся история<small>Тренировки и замеры в CSV</small></span>›</button>
     <button class="menu-btn" id="mBak"><span>Резервная копия<small>Скопировать все данные</small></span>›</button>
     <button class="menu-btn" id="mRes"><span>Восстановить из копии<small>Вставить ранее скопированные данные</small></span>›</button>
     <button class="menu-btn red" id="mDel"><span>Удалить все данные</span></button></div>`);
-  $('#m14').onclick = () => copy(report(14));
+  SEND = 'Еженедельный отчёт, сделай разбор недели:\n\n' + report(14);
   $('#mAll').onclick = () => copy(report(0));
   $('#mBak').onclick = () => copy(JSON.stringify(S));
   $('#mRes').onclick = () => {
@@ -877,6 +889,7 @@ function ask(title, sub, yes, danger) {
 let tt; function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2200); }
 
 /* ---------- События ---------- */
+document.addEventListener('click', e => { if (e.target.closest('a.send')) sendCoach(); }, true);
 document.addEventListener('click', async e => {
   const t = e.target.closest('button, .bg'); if (!t) return;
   if (t.id === 'bg' || t.hasAttribute('data-close')) return closeSheet();
