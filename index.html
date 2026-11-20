@@ -646,13 +646,35 @@ function setRir(v) {
   document.querySelectorAll('[data-rir]').forEach(b => b.classList.toggle('sel', +b.dataset.rir === v));
 }
 
-async function finish() {
+function dateField(label) {
+  return `<div class="s-label">${label}</div><input class="field" id="fDate" type="date" value="${today()}" max="${today()}">
+    <div class="s-sub" style="margin-top:6px">Забыл записать вовремя — выбери день, когда это было.</div>`;
+}
+function pickedDate() { const v = ($('#fDate') || {}).value; return v && v <= today() ? v : today(); }
+function finishSheet() {
   const a = S.active; if (!a || !a.sets.length) return;
   const exN = new Set(a.sets.map(s => s.ex)).size;
-  if (!(await ask('Завершить тренировку?', `${a.sets.length} подходов в ${exN} упражнениях.`, 'Завершить'))) return;
+  openSheet(`<div class="s-title">Завершить тренировку?</div><div class="s-sub">${SNAME[a.session]} · ${a.sets.length} подходов в ${exN} упражнениях</div>
+    ${dateField('Дата тренировки')}
+    <div class="actions"><button class="btn ghost" data-close>Назад</button><button class="btn primary" id="fGo">Завершить</button></div>`);
+  $('#fGo').onclick = () => finish(pickedDate());
+}
+function poolSheet() {
+  openSheet(`<div class="s-title">Сохранить заплыв?</div><div class="s-sub">${S.poolDraft} × 25 м = ${S.poolDraft * 25} м</div>
+    ${dateField('Дата заплыва')}
+    <div class="actions"><button class="btn ghost" data-close>Назад</button><button class="btn primary" id="pGo">Сохранить</button></div>`);
+  $('#pGo').onclick = () => {
+    const d = pickedDate();
+    S.workouts.push({ id: Date.now(), date: d, session: 'P', laps: S.poolDraft, sets: [] }); S.poolDraft = 0; save();
+    closeSheet(); toast(d === today() ? 'Заплыв записан' : 'Заплыв записан на ' + dShort(d)); render();
+  };
+}
+async function finish(date) {
+  const a = S.active; if (!a || !a.sets.length) return;
+  date = date || today();
   const before = {};
   ALL.forEach(ex => { const b = bestE1(ex.n); if (b) before[ex.n] = b; });
-  const w = { id: Date.now(), date: today(), session: a.session, sets: a.sets, dur: Math.round((Date.now() - a.start) / 1000) };
+  const w = { id: Date.now(), date, session: a.session, sets: a.sets, dur: date === today() ? Math.round((Date.now() - a.start) / 1000) : null };
   S.workouts.push(w); S.active = null; save();
   restEnd = 0; clearInterval(restTimer);
   const recs = [];
@@ -663,7 +685,7 @@ async function finish() {
   });
   const ton = w.sets.reduce((t, s) => t + (s.w || 0) * (s.r || 0), 0);
   let h = `<div class="s-title">Тренировка записана</div><div class="s-sub">${SNAME[w.session]} · ${dLong(w.date)}</div><div style="margin-top:12px">
-    <div class="ir"><span>Время</span><span>${Math.round(w.dur / 60)} мин</span></div>
+    ${w.dur ? `<div class="ir"><span>Время</span><span>${Math.round(w.dur / 60)} мин</span></div>` : ''}
     <div class="ir"><span>Подходов</span><span>${w.sets.length}</span></div>
     <div class="ir"><span>Поднято всего</span><span>${f0(ton)} кг</span></div></div>`;
   if (recs.length) h += `<div class="s-label">Рекорды (расчётный 1ПМ)</div>${recs.map(r => `<div class="ir"><span>${esc(r.split(':')[0])}</span><span>${esc(r.split(': ')[1])}</span></div>`).join('')}`;
@@ -904,14 +926,11 @@ document.addEventListener('click', async e => {
   switch (t.id) {
     case 'gear': return settingsSheet();
     case 'fab': return bodySheet(null);
-    case 'finishBtn': return finish();
+    case 'finishBtn': return finishSheet();
     case 'restPill': restEnd = 0; clearInterval(restTimer); return renderDock();
     case 'poolPlus': S.poolDraft = (S.poolDraft || 0) + 1; save(); return render();
     case 'poolMinus': S.poolDraft = Math.max(0, (S.poolDraft || 0) - 1); save(); return render();
-    case 'poolSave': {
-      if (!(await ask('Сохранить заплыв?', `${S.poolDraft} × 25 м = ${S.poolDraft * 25} м`, 'Сохранить'))) return;
-      S.workouts.push({ id: Date.now(), date: today(), session: 'P', laps: S.poolDraft, sets: [] }); S.poolDraft = 0; save(); toast('Заплыв записан'); return render();
-    }
+    case 'poolSave': return poolSheet();
     case 'cancelW': {
       if (!(await ask('Отменить тренировку?', 'Записанные подходы удалятся.', 'Отменить', true))) return;
       S.active = null; restEnd = 0; clearInterval(restTimer); save(); return render();
