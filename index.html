@@ -498,7 +498,8 @@ function suggest() {
   if (S.active) return S.active.session;
   const t = S.workouts.filter(w => w.date === today()).pop();
   if (t) return t.session;
-  if (new Date().getDay() === 3) return 'P';
+  const dow = new Date().getDay();
+  if (dow === 2 || dow === 4) return 'P';
   const last = strength().pop();
   return last ? (last.session === 'A' ? 'B' : 'A') : 'A';
 }
@@ -534,6 +535,8 @@ function renderToday() {
   const wk = weekNo();
   $('#sub').textContent = `${dLong(today())} · неделя ${wk}`;
   let h = `<div class="chips">${['A', 'B', 'P'].map(k => `<button class="chip${k === sel ? ' sel' : ''}" data-sel="${k}">${SNAME[k]}</button>`).join('')}</div>`;
+  const dw = new Date().getDay();
+  if ((dw === 0 || dw === 6) && !S.active) h += `<div class="note"><b>Сегодня выходной.</b> Силовых и бассейна нет — погуляй 40–60 минут. Если всё же пришёл в зал, выбери тренировку выше.</div>`;
   const doneToday = S.workouts.filter(w => w.date === today() && w.session === sel);
   if (doneToday.length && !S.active) {
     const w = doneToday[doneToday.length - 1];
@@ -568,7 +571,7 @@ function poolHtml() {
   const n = S.poolDraft || 0;
   return `<div class="pool"><div class="big">${n}</div><div class="unit">отрезков по 25 м · ${n * 25} м</div>
     <div class="ctl"><button id="poolMinus" aria-label="Минус отрезок">−</button><button class="plus" id="poolPlus" aria-label="Плюс отрезок">+</button></div></div>
-    <div class="note" style="margin-top:28px"><b>Цель:</b> 10–12 отрезков спокойно. Проплыл 25 м — отдых у бортика 30–60 с, нажал «+».${last ? `<br>Прошлый раз (${dShort(last.date)}): ${last.laps} × 25 м = ${last.laps * 25} м.` : ''}</div>`;
+    <div class="note" style="margin-top:28px"><b>Цель:</b> 50 м без остановки (туда и обратно), отдых 60 с, 8–10 раз. Каждые 25 м — одно нажатие «+», то есть 16–20 за занятие.${last ? `<br>Прошлый раз (${dShort(last.date)}): ${last.laps} × 25 м = ${last.laps * 25} м.` : ''}</div>`;
 }
 
 function renderDock() {
@@ -789,7 +792,7 @@ function renderProg() {
   const wkS = W.filter(w => w.date >= mon).length, wkP = pool.filter(w => w.date >= mon).length;
   $('#sub').textContent = W.length ? `с ${dShort(W[0].date)} · неделя ${weekNo()}` : 'Здесь появится рост силы';
   let h = `<div class="stats">
-    <div class="stat"><div class="st-l">Эта неделя</div><div class="st-v">${wkS}<small>из 2 зал</small></div><div class="st-d">${wkP ? 'бассейн ✓' : 'бассейн —'}</div></div>
+    <div class="stat"><div class="st-l">Эта неделя</div><div class="st-v">${wkS}<small>из 3 зал</small></div><div class="st-d">бассейн ${wkP} из 2</div></div>
     <div class="stat"><div class="st-l">Всего</div><div class="st-v">${W.length}<small>трен.</small></div><div class="st-d">${pool.length} в бассейне · ${f0(pool.reduce((t, p) => t + p.laps * 25, 0))} м</div></div>
   </div>`;
   h += `<div class="g-title"><span>Сила · расчётный 1ПМ</span></div><div>`;
