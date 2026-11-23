@@ -494,12 +494,13 @@ function advise(ex) {
 
 /* ---------- Состояние экрана ---------- */
 let tab = 'today';
+const NEW_SCHED = '2026-11-30'; // с этой даты: Пн/Ср/Пт зал, Вт/Чт бассейн
 function suggest() {
   if (S.active) return S.active.session;
   const t = S.workouts.filter(w => w.date === today()).pop();
   if (t) return t.session;
   const dow = new Date().getDay();
-  if (dow === 2 || dow === 4) return 'P';
+  if (today() >= NEW_SCHED ? (dow === 2 || dow === 4) : dow === 3) return 'P';
   const last = strength().pop();
   return last ? (last.session === 'A' ? 'B' : 'A') : 'A';
 }
@@ -792,7 +793,7 @@ function renderProg() {
   const wkS = W.filter(w => w.date >= mon).length, wkP = pool.filter(w => w.date >= mon).length;
   $('#sub').textContent = W.length ? `с ${dShort(W[0].date)} · неделя ${weekNo()}` : 'Здесь появится рост силы';
   let h = `<div class="stats">
-    <div class="stat"><div class="st-l">Эта неделя</div><div class="st-v">${wkS}<small>из 3 зал</small></div><div class="st-d">бассейн ${wkP} из 2</div></div>
+    <div class="stat"><div class="st-l">Эта неделя</div><div class="st-v">${wkS}<small>из ${today() >= NEW_SCHED ? 3 : 2} зал</small></div><div class="st-d">бассейн ${wkP} из ${today() >= NEW_SCHED ? 2 : 1}</div></div>
     <div class="stat"><div class="st-l">Всего</div><div class="st-v">${W.length}<small>трен.</small></div><div class="st-d">${pool.length} в бассейне · ${f0(pool.reduce((t, p) => t + p.laps * 25, 0))} м</div></div>
   </div>`;
   h += `<div class="g-title"><span>Сила · расчётный 1ПМ</span></div><div>`;
